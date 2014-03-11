@@ -16,4 +16,5 @@ int get_debug_level(void);
 void change_debug_facility( int new_facility );
 void setup_debugp_syslog( char *ident );
 void debugp_cleanup(void);
+
 #endif

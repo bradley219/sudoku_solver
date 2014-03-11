@@ -1,7 +1,26 @@
 #ifndef _SUDOKUSOLVER_SOURCE_
 #define _SUDOKUSOLVER_SOURCE_
 
-#include "sudokusolver.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <assert.h>
+#include "debugp.h"
+
+#define DEBUG_LEVEL 0 
+//#define PRINT_AS_YOU_SOLVE
+
+typedef struct {
+	int blankcount;
+	int depth;
+	int *blanks;
+	int magic[81];
+	int ints[81];
+	uint16_t history[81];
+} puzzle_t;
 
 int bitcount( uint16_t word )
 {
@@ -14,45 +33,52 @@ int bitcount( uint16_t word )
     x = (x & m2) + ((x >> 2) & m2);
     x = (x + (x >> 4)) & m4;
     int retval = (x * h01)>>56;
-	 return retval;
+	return retval;
 }
 
 int get_xy( puzzle_t *puz, int col, int row )
 {
 	return puz->ints[row*9+col];
 }
+
 void set_xy( puzzle_t *puz, int col, int row, int val )
 {
 	//debugp( 8, "set_xy(%d,%d,%d)\n", col, row, val );
 	puz->ints[row*9+col] = val;
 	return;
 }
+
 int gethx_xy( puzzle_t *puz, int col, int row )
 {
 	return puz->history[row*9+col];
 }
+
 int getmagic_xy( puzzle_t *puz, int col, int row )
 {
 	int magic = puz->magic[row*9+col];
 	debugp( 8, "getmagic_xy(%d,%d) = %d\n", col, row, magic );
 	return magic;
 }
+
 void sethx_xy( puzzle_t *puz, int col, int row, int val )
 {
 	puz->history[row*9+col] = val;
 	return;
 }
+
 void markhx_xy( puzzle_t *puz, int col, int row, int val )
 {
 	puz->history[row*9+col] |= (1<<val);
 	return;
 }
+
 void setmagic_xy( puzzle_t *puz, int col, int row, int val )
 {
 	//debugp( 8, "setmagic_xy(%d,%d,%d)\n", col, row, val );
 	puz->magic[row*9+col] = val;
 	return;
 }
+
 void print_puzzle( puzzle_t *puz, char marker )
 {
 	int *i = puz->ints;
@@ -84,10 +110,12 @@ void print_puzzle( puzzle_t *puz, char marker )
 	printf( "\n" );
 	return;
 }
+
 int squarenum( int col, int row )
 {
 	return (row/3) * 3 + (col/3);
 }
+
 uint16_t get_possible_by_square( puzzle_t *puz, int square )
 {
 	int square_x = (square % 3) * 3;
@@ -166,6 +194,7 @@ uint16_t get_possible_by_col( puzzle_t *puz, int col )
 	uint16_t avail = (~used & 0x3ff);
 	return avail;
 }
+
 uint16_t possible( puzzle_t *puz, int col, int row )
 {
 	uint16_t choices = 0;
@@ -190,10 +219,9 @@ uint16_t possible( puzzle_t *puz, int col, int row )
 
 	return choices;
 }
+
 void reset_vals( puzzle_t *puz, int which )
 {
-	//debugp( 8, "reset\n" );
-
 	int idx = 0;
 	int skip = which;
 	for( int row = 0; row < 9; row++ )
@@ -230,7 +258,6 @@ uint64_t max_iterations( puzzle_t *puz )
 		{
 			int poscount = bitcount(pos);
 
-
 			if( perms == -1 )
 				perms = poscount;
 			else
@@ -251,7 +278,6 @@ uint64_t max_iterations( puzzle_t *puz )
 int blankchange( puzzle_t *puz, int which, int direction )
 {
 	int retval = -1;
-
 	
 	int *bp = puz->blanks + which;
 
@@ -264,7 +290,6 @@ int blankchange( puzzle_t *puz, int which, int direction )
 
 	if( poscount > 0 )
 	{
-
 		debugp( 8, "found %d possible for (%d,%d): ", poscount,idx%9,idx/9 );
 
 		// make a list
@@ -348,7 +373,6 @@ int puzzle_solve( puzzle_t *puz, int *its )
 	}
 	else
 	{
-
 		debugp( 8, "max_step = %llu\n", max_step );
 
 		int *leveltrack = malloc( sizeof(int) * puz->blankcount );
@@ -356,7 +380,6 @@ int puzzle_solve( puzzle_t *puz, int *its )
 		
 		while( (level < (puz->blankcount)) && ((step++) < max_step) )
 		{
-
 			debugp( 8, "Step %llu/%llu: ", step, max_step );
 			int rval = blankchange( puz, level, 1 );
 			switch(rval)
@@ -397,7 +420,6 @@ int puzzle_solve( puzzle_t *puz, int *its )
 			printf( "%s", clear );
 			print_puzzle( puz, ' ' );
 #endif
-		
 		}
 
 		for( int l=0; l < puz->blankcount; l++ )
@@ -410,7 +432,6 @@ int puzzle_solve( puzzle_t *puz, int *its )
 		*its = step;
 		retval = 0;
 	}
-
 	return retval;
 }
 
@@ -421,6 +442,7 @@ void puzzle_init( puzzle_t *puz )
 
 	// Find which numbers are used
 	for( int col = 0; col < 9; col++ )
+    {
 		for( int row = 0; row < 9; row++ )
 		{
 			int val = get_xy( puz, col, row );
@@ -437,6 +459,7 @@ void puzzle_init( puzzle_t *puz )
 				blank_count++;
 			}
 		}
+    }
 
 	puz->blankcount = blank_count;
 	if( puz->blankcount )
@@ -449,6 +472,7 @@ void puzzle_init( puzzle_t *puz )
 	int *ip = puz->blanks;
 	int idx = 0;
 	for( int row = 0; row < 9; row++ )
+    {
 		for( int col = 0; col < 9; col++ )
 		{
 			if( get_xy(puz,col,row) == 0 )
@@ -458,19 +482,18 @@ void puzzle_init( puzzle_t *puz )
 			}
 			idx++;
 		}
-
+    }
 	return;
 }
+
 void puzzle_free( puzzle_t *puz )
 {
 	free(puz->blanks);
 	return;
 }
 
-
 int main( int argc, char *argv[] )
 {
-
 	set_debug_level( DEBUG_LEVEL );
 
 	if( argc < 2 )
@@ -487,7 +510,6 @@ int main( int argc, char *argv[] )
 		debugp( 0, "Error: cannot open file `%s'\n", argv[1] );
 		exit(-1);
 	}
-
 
 	debugp( 0, "Loading puzzle...\n" );
 	
@@ -524,8 +546,6 @@ int main( int argc, char *argv[] )
 	puzzle_t original;
 	memcpy( &original, &puz, sizeof(puzzle_t) );
 
-	
-	
 	int its;
 	int result = puzzle_solve( &puz, &its );
 	print_puzzle(&original,'*');
@@ -538,7 +558,5 @@ int main( int argc, char *argv[] )
 	
 	return 0;
 }
-
-
 
 #endif
